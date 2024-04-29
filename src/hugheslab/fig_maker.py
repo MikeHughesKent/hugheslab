@@ -33,21 +33,31 @@ def qshow(img, title = None, axes = None, cmap = None):
 
 
 def multi_im(imgs, nCols = 4, labelLetters = True, labels = None, rowLabels = None, columnLabels = None, fontSize = 8, fontFamily = "Times New Roman", width = 140, dpi = 150, autoScale = True):
-    """ Produces a multi-panel figure made up of square images.
+    """ Produces a multi-panel figure made up of images provided as numpy arrays.
     
     Arguments:
-        img          : list of images, each image as 2D/3D np array
+        img          : list of ndarray
+        list of images, each image as 2D/3D np array
         
-    Keyword Arguments:        
-        nCols        : number of columns in figure (default is 4)
-        labelLetters : if true, each image gets a letter label (default is True)
-        labels       : list of labels to use for images (default None).
-        rowLabels    : list of labels for rows (default None)
-        columnLabels : list of labels for columns (default None)
-        fontSize     : font size for all labels
-        fontFamily   : font family as a string
-        width        : width of figure in mm (default 140)
-        dpi          : dpi of figure (defaut 150)
+    Optional Keyword Arguments:        
+        nCols        : int
+                       number of columns in figure (default is 4)
+        labelLetters : boolean
+                       if true, each image gets a letter label (default is True)
+        labels       : list of str
+                       list of labels to use for images (default None).
+        rowLabels    : list of str
+                       list of labels for rows (default None)
+        columnLabels : list of str
+                       list of labels for columns (default None)
+        fontSize     : float
+                       font size for all labels
+        fontFamily   : str
+                       font family as a string
+        width        : float
+                       width of figure in mm (default 140)
+        dpi          : float
+                       dpi of figure (defaut 150)
         
     Returns :
         Matplotlib figure
@@ -157,14 +167,14 @@ def ax_zoom(ax, loc, zoom = 4, place = 'se',
     """ Adds a zoom inset to an axis
     
     Arguments:
-        ax       : reference to axis
-        loc      : zoomed area as tuple of (x,y,w,h)
+        ax         : reference to axis
+        loc        : zoomed area as tuple of (x,y,w,h)
         
     Keyword Arguments:
         zoom       : zoom factor
         place      : reserved
         displayLoc : reserved
-        offset     : overhand of inset over edge of original image, either int or tuple of (x,y)
+        offset     : overhang of inset over edge of original image, either int or tuple of (x,y)
         originBox  : True to draw box around zoom in original image (default)
         zoomBox    : True to draw box around zoom in zoomed image (default)
         lines      : True to draw lines between original and new areas (default)
@@ -317,7 +327,8 @@ def scalebar(ax, length = 100, text = None, hoffset = 1, voffset = 2, w = None, 
             
 
 def mm2pix(ax, mm):
-    """ Converts a dimensions in mm to pixels for a specified axis"""
+    """ Converts a dimensions in mm to pixels for a specified axis
+    """
     
     dpi = ax.get_figure().get_dpi()
     imWidth = abs(ax.get_xlim()[1] - ax.get_xlim()[0])

@@ -14,8 +14,36 @@ from PIL import Image
 
 from tqdm import tqdm
 
-def crop_zero (img):
-    """ Crops an image to the smallest rectangle that contains all non-zero
+
+def load_image(filename):
+    """
+    Loads an image or stack of images from a file. 
+    
+    Arguments:
+        filename    : str or Path
+                      path to file
+    
+    Returns:
+        ndarray     : 2D, 3D or 4D numpy array representing image or stack  
+
+    """
+    im = Image.open(filename)
+    
+    if im.n_frames > 1:
+        h,w = np.shape(im)
+        dt = np.array(im).dtype
+        stack = np.zeros((im.n_frames, h,w), dtype = dt)
+        for i in range(im.n_frames):
+            im.seek(i)
+            stack[i,:,:] = np.array(im)
+        return stack
+    else:    
+        return np.array(Image.open(filename))
+
+
+def crop_zero(img):
+    """ 
+    Crops an image to the smallest rectangle that contains all non-zero
     pixels.
     
     Returns cropped image as 2D numpy array.
@@ -42,7 +70,8 @@ def crop_zero (img):
     
 
 def extract_central(img, boxSize = None):
-    """ Extract a central square from an image. The extracted square is centred
+    """ 
+    Extract a central square from an image. The extracted square is centred
     on the input image, with size 2 * boxSize if possible, otherwise the largest
     square that can be extracted.
     
@@ -79,14 +108,14 @@ def to8bit(img, minVal = None, maxVal = None):
     whole image are mapped to 0 and 255, respectively.
     
     Arguments:
-        img    : ndarray
-                 input image as 2D numpy array
+            img    : ndarray
+                     input image as 2D numpy array
         
-   Keyword Arguments:    
-        minVal : float
-                 optional, pixel value to scale to 0
-        maxVal : float
-                 optional, pixel value to scale to 255
+    Keyword Arguments:    
+            minVal : float
+                     optional, pixel value to scale to 0
+            maxVal : float
+                     optional, pixel value to scale to 255
     """
  
     img = img.astype('float64')
@@ -146,7 +175,7 @@ def to16bit(img, minVal = None, maxVal = None):
 
 
 def radial_profile(img, centre):
-    """Produce angular averaged radial profile through image img centred on
+    """ Produce angular averaged radial profile through image img centred on
     centre, a tuple of (x_centre, y_centre)
     
     Returns radial profile as 1D numpy array
@@ -310,9 +339,80 @@ def load_stack(folder, status = True):
     return data   
   
 
+def save_tif_stack(stack, filename, bit_depth = 8, auto_contrast = None, fixed_min = None):
+    """ Writes stack of images from 3D numpy array to file. The array must 
+    be orders (frame, y, x).
+    
+    Arguments:
+        stack         : ndarray
+                        3D numpy array (frame, y, x)
+        filename      : str or Path
+                        path to file name. Folder must exist.            
+                       
+    Keyword Arguments:
+        bit_depth     : int
+                        8 (default) or 16
+        auto_contrast : str or None
+                        Whether or not to scale images to use full bit depth
+                        'image' to autoscale each image individually
+                        'stack' to autoscale entire stack
+                        None or 'none' for no autoscaling
+        fixed_min     : int or None
+                        if auto_contrast is 'image' or 'stack', setting this
+                        value fixed the lower range of the saved image pixel
+                        values rather than taking the minimum from the images.
+                                         
+    """
+    if stack.ndim != 3:
+       raise Exception("Stack must be 3D array.")
+
+    if auto_contrast == 'stack':
+       maxVal = np.max(stack)
+       if fixed_min is None:
+           minVal = np.min(stack)
+       else:
+           minVal = fixed_min
+    elif auto_contrast == 'image' or auto_contrast == 'none' or auto_contrast is None:
+        pass
+    else:
+        raise Exception("Keyword auto_contrast only accepts 'stack', 'image' or None.")
+
+       
+    if bit_depth == 16:
+        dt = 'uint16'
+    elif bit_depth == 8:
+        dt = 'uint8'
+    else:
+        raise Exception("Bit depth can only be 8 or 16.")
+    
+    imlist = []
+    for im in stack:
+        
+        if auto_contrast == 'image':
+            maxVal = np.max(np.abs(im))
+            if fixed_min is None:
+                minVal = np.min(np.abs(im))
+            else:
+                minVal = fixed_min
+                
+        if auto_contrast is not None:
+            im = im.astype('float64') - minVal
+            intrange = maxVal - minVal
+            if intrange > 0:
+                im = im / intrange * (2**bit_depth - 1)
+            else:
+                im[:] = 2**bit_depth - 1
+        imlist.append(Image.fromarray(im.astype(dt)))
+
+
+    imlist[0].save(filename, compression="tiff_lzw", save_all=True,
+           append_images=imlist[1:])
+    
+    
+
 
 def log_scale_image(img, min_val = None):
-    """Generates a log-scaled image, adjusted for good visual appearance
+    """ Generates a log-scaled image, adjusted for good visual appearance,
     particularly for OCT images.
     
     Arguments:
@@ -357,8 +457,7 @@ def log_scale_min(img):
     Returns:
         float, minimum value           
                    .
-    """
-    
+    """    
     
     mask = img == 0
     im = np.log(img + 0.00001)
