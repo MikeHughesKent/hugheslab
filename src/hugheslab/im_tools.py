@@ -14,6 +14,8 @@ from PIL import Image
 
 from tqdm import tqdm
 
+import cv2
+
 
 def load_image(filename):
     """
@@ -452,8 +454,7 @@ def log_scale_min(img):
     Arguments:
         img     : ndarray 
                   image as 2D numpy array
-     
-    
+         
     Returns:
         float, minimum value           
                    .
@@ -474,3 +475,55 @@ def log_scale_min(img):
         return dispMin
     else:
         return 0    
+   
+    
+   
+def rect_to_pol(image, fov_angle=360, depth = None, offset = 0):
+    """ Converts a rectangular image to a polar plot. Assumes that
+    the y direction in the image is radial, and the x direction
+    is angle.
+    
+    Arguments:
+        image     : ndarray 
+                    image as 2D numpy array
+    Keyword Arguments:                  
+        fov_angle : float
+                    angular range corresponding to width of image, degrees
+        depth     : float
+                    max vertical range in inout immge to use, default is None
+                    in which case all of image is used.
+        offset    : float
+                    min vertical position in input image to use, default is 0            
+                   
+    Returns:
+        ndarray, 2D numpy array containing output image
+    """
+    
+
+    height, width = image.shape[:2]
+
+    if depth is None:
+        depth = height
+       
+    origin = height // 2
+    
+    # Create coordinate maps
+    y, x = np.indices((depth, depth))
+    
+    # Calculate polar coordinates
+    r = np.sqrt((x - origin)**2 + (y - origin)**2)
+    theta = np.arctan2(x - origin, y - origin)
+    
+    # Map polar to Cartesian coordinates
+    source_x = ((theta - np.min(theta)) / np.radians(fov_angle)) * (width - 1) 
+    source_y = r * 2 + offset
+    
+      
+    # Interpolate values from the original image
+    im_out = cv2.remap(image, source_x.astype(np.float32), 
+                                 source_y.astype(np.float32), 
+                                 cv2.INTER_LINEAR)
+    
+    return im_out 
+
+    

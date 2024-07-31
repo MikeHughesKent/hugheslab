@@ -13,22 +13,36 @@ import numpy as np
 
 from PIL import Image
 
-def qshow(img, title = None, axes = None, cmap = None):
-    """ Utility to quickly display an image.
+def qshow(img, title = None, axes = None, cmap = 'gray', dpi = 150, size = 75):
+    """ Utility to quickly display an image in a matplotlib figure wtih useful defaults.
+    
+    Arguments:
+        img      : ndarray
+                   image to display
+    
+    Keyword Arguments:
+        title    : str
+                   plot title, default is not title
+        axes     : (str, str)
+                   x and y axis labels, default is no labels
+        cmap     : str
+                   matplotlib colormap, default is 'grey'
+        dpi      : int
+                   display dpi, default is 150 
+        size     : (float, float)
+                   x and y size of figure in mm, default (3,3)
+                   
     """
     
-    if cmap is None:
-        cmap = 'gray'
-    
-    ax = plt.figure(dpi=150)
-    plt.imshow(img, cmap = 'gray')
+    ax = plt.figure(dpi=dpi, figsize = (size / 25.4,size/ 25.4))
+    p = plt.imshow(img, cmap = cmap, interpolation = 'None', aspect = 'equal')
     if title is not None: plt.title(title)
     if axes is not None:
         plt.xlabel(axes[0])
         plt.ylabel(axes[1])
     plt.show()    
     
-    return 
+    return p
 
 
 
@@ -253,7 +267,7 @@ def ax_zoom(ax, loc, zoom = 4, place = 'se',
         ax.add_patch(patches.Polygon(np.array(((ox + ow, oy), (fw , fh - zh))), closed = False, linewidth=1, edgecolor='w', ls = '--', facecolor='none'))
 
 
-def scalebar(ax, length = 100, text = None, hoffset = 1, voffset = 2, w = None, h = 1, place = 'nw', padding = 1):
+def scalebar(ax, length = 100, text = None, hoffset = 1, voffset = 2, w = None, h = 1, place = 'nw', padding = 1, shadow = True):
     """ Adds a scalebar to an image
     
     Arguments:
@@ -308,8 +322,8 @@ def scalebar(ax, length = 100, text = None, hoffset = 1, voffset = 2, w = None, 
             tw = bb.width
             th = bb.height
             padding = mm2pix(ax,padding)
-            ax.add_patch(patches.Rectangle((x - padding, y + th/2 - padding), tx - x + tw + padding *2, -th + padding *2, linewidth=1, edgecolor=None, ls = '--', facecolor=(0,0,0,0.5)))
-            ax.add_patch(patches.Rectangle((x, y), w, h, linewidth=1, edgecolor='w', facecolor='w'))
+            if shadow: ax.add_patch(patches.Rectangle((x - padding, y + th/2 - padding), tx - x + tw + padding *2, -th + padding *2, linewidth=1, edgecolor=None, ls = '--', facecolor=(0,0,0,0.5)))
+            if shadow: ax.add_patch(patches.Rectangle((x, y), w, h, linewidth=1, edgecolor='w', facecolor='w'))
         
         elif place == 'se':
             
@@ -321,8 +335,8 @@ def scalebar(ax, length = 100, text = None, hoffset = 1, voffset = 2, w = None, 
             tw = bb.width
             th = bb.height
             padding = mm2pix(ax,padding)
-            ax.add_patch(patches.Rectangle((imW - x - w - tw - hoffset - padding, imH - y + th ), tx + tw + padding *2, -th + padding *2, linewidth=1, edgecolor=None, ls = '--', facecolor=(0,0,0,0.5)))
-            ax.add_patch(patches.Rectangle((imW - x - w, imH - y - h), w, h, linewidth=1, edgecolor='w', facecolor='w'))
+            if shadow: ax.add_patch(patches.Rectangle((imW - x - w - tw - hoffset - padding, imH - y + th ), tx + tw + padding *2, -th + padding *2, linewidth=1, edgecolor=None, ls = '--', facecolor=(0,0,0,0.5)))
+            if shadow: ax.add_patch(patches.Rectangle((imW - x - w, imH - y - h), w, h, linewidth=1, edgecolor='w', facecolor='w'))
          
             
 
