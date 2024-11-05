@@ -14,7 +14,7 @@ from PIL import Image
 
 from tqdm import tqdm
 
-import cv2
+import cv2 
 
 
 def load_image(filename):
@@ -41,6 +41,67 @@ def load_image(filename):
         return stack
     else:    
         return np.array(Image.open(filename))
+
+
+
+import numpy as np
+
+
+def crop_image(img, centre, dims):
+    """Crops an image or stack of images stored as a numpy array, with cropping performed
+    around a specified central point.
+    
+    Arguments:
+        img:     ndarray
+                 2D or 3D image as numpy array. If 2D must be (y,x), if 3D, 
+                 must be (frame_number, y, x)
+        centre:  tuple of (int, int)
+                 pixel to be at centre of cropped image (x, y)
+        dims:    tuple of (int, int)
+                 size of cropped image (width, height)
+    
+    Returns:
+        ndarray: cropped image or stack of cropped images
+    """
+    # Check if the input is 2D or 3D
+    if img.ndim == 2:
+        # If it's 2D, just crop the single image
+        return __crop_single_image(img, centre, dims)
+    elif img.ndim == 3:
+        # If it's 3D, loop through the first dimension (each image) and crop
+        cropped_images = []
+        for i in range(img.shape[0]):
+            cropped_image = __crop_single_image(img[i], centre, dims)
+            cropped_images.append(cropped_image)
+        return np.stack(cropped_images)
+    else:
+        raise ValueError("Input image must be a 2D or 3D numpy array")
+        
+
+def __crop_single_image(img, centre, dims):
+    """Crops a single 2D image around the specified centre."""
+    # Extract dimensions of the image and the target crop
+    img_height, img_width = img.shape[:2]
+    crop_width, crop_height = dims
+    
+    # Calculate cropping boundaries
+    x_centre, y_centre = centre
+    x_start = max(0, x_centre - crop_width // 2)
+    y_start = max(0, y_centre - crop_height // 2)
+    x_end = min(img_width, x_start + crop_width)
+    y_end = min(img_height, y_start + crop_height)
+    
+    # Adjust the starting coordinates in case the end coordinates are too close to the image boundary
+    x_start = max(0, x_end - crop_width)
+    y_start = max(0, y_end - crop_height)
+    
+    # Return the cropped portion of the image
+    return img[y_start:y_end, x_start:x_end]
+
+    
+                 
+    
+    
 
 
 def crop_zero(img):
@@ -305,12 +366,16 @@ def max_channels(img):
         
     
 
-def load_stack(folder, status = True):
+def load_stack(folder, num = None, status = True):
     """ Loads a stack of images from a folder into a 3D numpy array
     
     Arguments:
         folder      : str
                       path to folder
+    Keyword Arguments:
+        num         : int or None
+                      if None (default), or images will be loaded, otherwise
+                      the first num image will be loaded
         status      : boolean
                       if True, updates status on console (default = True)              
                       
@@ -320,7 +385,12 @@ def load_stack(folder, status = True):
 
     image_files = [f for f in os.listdir(folder)]
     
-    nImages = len(image_files)    
+    if num is None:
+        nImages = len(image_files)  
+    else:
+        nImages = num
+        
+    image_files = image_files[:nImages]
     
     testIm = np.array(Image.open(os.path.join(folder,image_files[0])))
     
@@ -527,3 +597,99 @@ def rect_to_pol(image, fov_angle=360, depth = None, offset = 0):
     return im_out 
 
     
+def get_shifts(imgs, templateSize = None, refSize = None, upsample = 2, **kwargs):
+    """ Determines the shift of each image in a stack w.r.t. first image
+    
+    Return shifts as 2D numpy array.
+    
+    Arguments:
+        
+        imgs         : stack of images as 3D numpy array
+        
+    Keyword Arguments:
+        
+        templateSize : int, a square of this size is extracted from imgs 
+                       as the template, default is 1/4 image size
+        refSize      : int, a square of this size is extracted from first 
+                       image as the reference image, default is 1/2 image
+                       size. Must be bigger than  
+                       templateSize and the maximum shift detectable is 
+                       (refSize - templateSize)/2   
+        upSample     : upsampling factor for images before shift detection  
+                       for sub-pixel accuracy, default is 2.
+    """
+
+    imgSize = np.min(np.shape(imgs)[1:3])
+
+    if templateSize is None:
+        templateSize = imgSize / 4
+
+    if refSize is None:
+        refSize = imgSize / 2
+
+    nImages = np.shape(imgs)[0]
+    refImg = imgs[0]
+    shifts = np.zeros((nImages, 2))
+    for iImage in range(1, nImages):
+        img = imgs[iImage]
+        thisShift = find_shift(
+            refImg, img, templateSize, refSize, upsample)
+
+        shifts[iImage, 0] = thisShift[0]
+        shifts[iImage, 1] = thisShift[1]
+
+    return shifts
+
+
+def find_shift(img1, img2, templateSize, refSize, upsample, returnMax = False):
+    """ Determines shift between two images by Normalised Cross 
+    Correlation (NCC). A square template extracted from the centre of img2 
+    is compared with a square region extracted from the reference image 
+    img1. The size of the template (templateSize) must be less than the 
+    size of the reference (refSize). The maximum detectable shift is 
+    (refSize - templateSize) / 2.
+    
+    If returnMax is False, returns shift as a tuple of (x_shift, y_shift).
+    If returnMax is True, returns tuple of (shift, cc. peak value).
+    
+    Arguments:
+        img1         : image as 2D numpy array
+        img2         : image as 2D numpy array
+        templateSize : int, size of square region of img2 to use as template. 
+        refSize      : int, size of square region of img1 to template match with
+        upsample     : int, factor to scale images by prior to template matching to
+                       allow for sub-pixel registration.  
+                       
+    Keyword Arguments:
+        returnMax    : boolean, if true returns cc.peak value as well
+                       as shift, default is False. 
+               
+    """
+    
+
+    if refSize < templateSize or min(np.shape(img1)) < refSize or min(np.shape(img2)) < refSize:
+        return -1
+    else:
+
+        template = extract_central(img2, templateSize).astype('float32')
+        refIm = extract_central(img1, refSize).astype('float32')
+  
+
+        if upsample != 1:
+
+            template = cv2.resize(template, (np.shape(template)[
+                                 0] * upsample, np.shape(template)[1] * upsample))
+            refIm = cv2.resize(
+                refIm, (np.shape(refIm)[0] * upsample, np.shape(refIm)[0] * upsample))
+
+        res = cv2.matchTemplate(template, refIm, cv2.TM_CCORR_NORMED)
+       
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+        
+        shift = [(max_loc[0] - (refSize - templateSize)   * upsample)/upsample,
+                 (max_loc[1] - (refSize - templateSize)   * upsample)/upsample]
+        
+        if returnMax:
+            return shift, max_val
+        else:
+            return shift
