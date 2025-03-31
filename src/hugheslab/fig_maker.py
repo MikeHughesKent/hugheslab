@@ -249,8 +249,8 @@ def ax_zoom(ax, loc, zoom = 4, place = 'se',
     
     # inset
     if zoomBox:
-        ax.add_patch(patches.Rectangle((y, x), zh, zw, linewidth=1, edgecolor='k', facecolor='none'))
-        ax.add_patch(patches.Rectangle((y, x), zh, zw, linewidth=1, edgecolor='w', ls = '--', facecolor='none'))
+        ax.add_patch(patches.Rectangle((x, y), zw, zh, linewidth=1, edgecolor='k', facecolor='none'))
+        ax.add_patch(patches.Rectangle((x, y), zw, zh, linewidth=1, edgecolor='w', ls = '--', facecolor='none'))
 
     # origin
     if originBox:
