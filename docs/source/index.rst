@@ -9,8 +9,8 @@ HughesLab
 HughesLab is a python package containing functions used in Mike Hughes' lab in 
 the Applied Optics Group at the University of Kent.
 
-The package was made for internal use, but is publically available on Github
-`Github <https://github.com/MikeHughesKent/hugheslab>`_ in case other find
+The package was made for internal use, but is publically available on 
+`Github <https://github.com/MikeHughesKent/hugheslab>`_ in case others find
 it useful.
 
 
@@ -21,7 +21,8 @@ it useful.
    conversion
    cropping
    reduction
-   scaling_display
+   scaling
+   display
    figures
     
 

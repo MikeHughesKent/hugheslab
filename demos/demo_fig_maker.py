@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Simple test the fig_maker.
-
-@author: Mike Hughes
+Simple demo of the fig_maker.
 """
 
 import sys
@@ -10,10 +8,9 @@ sys.path.append('../src')
 
 import numpy as np
 
-from hugheslab.fig_maker import *
+from hugheslab import *
 
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 
 
 imgs = []
