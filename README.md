@@ -21,7 +21,7 @@ Quick-display helpers for interactive use:
 - `qplot` : display a 1D line plot with sensible defaults
 
 ### Figure Generator
-Tools ot make publication-style multi-panel figure from images:
+Tools to make publication-style multi-panel figure from images:
 - `multi_im` : lay out a grid of images with automatic lettering and labels
 - `ax_zoom` / `img_zoom` : add a zoomed inset to an existing axes or image
 - `scalebar` : draw a scalebar on an image axes
