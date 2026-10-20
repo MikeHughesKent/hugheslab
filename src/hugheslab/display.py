@@ -109,7 +109,7 @@ def cshow(img, dpi=150, figsize=(10, 5), figsizem=None, phase_cmap="twilight", a
 
     return fig, (ax1, ax2)
 
-def qplot(data1, data2 = None, title = None, axes = None, dpi = 150, figsize = (5,5), figsizem = None):
+def qplot(data1, data2 = None, title = None, x_label = None, y_label = None, ylim = None, xlim = None, dpi = 150, figsize = (5,5), figsizem = None, font = None, font_size = None):
     """ Utility to quickly display a plot in a matplotlib figure wtih useful defaults.
     
     Arguments:
@@ -119,6 +119,11 @@ def qplot(data1, data2 = None, title = None, axes = None, dpi = 150, figsize = (
                    y data to plot
 
     """
+
+    if font is not None:
+        plt.rcParams['font.family'] = font
+    if font_size is not None:
+        plt.rcParams['font.size'] = font_size
 
     if data2 is None:
         x = np.arange(len(data1))
@@ -130,15 +135,71 @@ def qplot(data1, data2 = None, title = None, axes = None, dpi = 150, figsize = (
     if figsizem is not None:
         figsize = (figsizem[0] / 25.4, figsizem[1] / 25.4)  
 
-    ax = plt.figure(dpi=dpi, figsize = figsize)
+    fig = plt.figure(dpi=dpi, figsize = figsize)
     p = plt.plot(x, y)  
 
+    if ylim is not None: plt.ylim(ylim)
+    if xlim is not None: plt.xlim(xlim)
+
     if title is not None: plt.title(title)
-    if axes is not None:
-        plt.xlabel(axes[0])
-        plt.ylabel(axes[1])
+    if x_label is not None: plt.xlabel(x_label)
+    if y_label is not None: plt.ylabel(y_label)
 
     plt.grid(True)  
     plt.show()
 
-    return ax, p
+    return fig, p
+
+
+def dual_plot(data1, data2, colors = ('blue', 'red'), title = None, x_label = None, y_labels = None, dpi = 150, figsize = (5,5), figsizem = None):
+    """ Utility to quickly display two sets of data on the same plot with two 
+    y-axes in a matplotlib figure wtih useful defaults.
+    
+    Arguments:
+        data1    : (ndarray, ndarray)
+                     tuple of (x, y) data for first plot
+        data2    : (ndarray, ndarray)
+                     tuple of (x, y) data for second plot
+
+        Keyword Arguments:
+        colors    : (str, str)
+                     tuple of color names for first and second plot (default = ('blue', 'red')) 
+        title     : str
+                     plot title, default is no title
+        x_label   : str
+                        x-axis label, default is no label
+        y_labels  : (str, str)
+                        tuple of y-axis labels for first and second plot (default is no labels) 
+        dpi       : int
+                        display dpi, default is 150
+        figsize   : (float, float)
+                        x and y size of figure in inches, default (5,5)
+        figsizem  : (float, float)  
+                        x  and y size of figure in mm, default None (overrides figsize if specified)
+        Returns:
+            tuple of (Figure, (Axes, Axes), (Line2D, Line2D)) : figure, axes, and line objects from matplotlib  
+    """
+    
+    if figsizem is not None:
+        figsize = (figsizem[0] / 25.4, figsizem[1] / 25.4)  
+
+    fig, ax1 = plt.subplots(dpi=dpi, figsize=figsize)
+
+    if x_label is not None: ax1.set_xlabel(x_label)
+
+    if y_labels is not None: ax1.set_ylabel(y_labels[0], color=colors[0])
+    p1, = ax1.plot(data1[0], data1[1], color=colors[0])
+    ax1.tick_params(axis='y', labelcolor=colors[0])
+
+    ax2 = ax1.twinx()  
+    if y_labels is not None: ax2.set_ylabel(y_labels[1], color=colors[1])
+    p2, = ax2.plot(data2[0], data2[1], color=colors[1])
+    ax2.tick_params(axis='y', labelcolor=colors[1])
+
+    if title is not None:
+        plt.title(title)
+
+    plt.grid(True)  
+    plt.show()
+
+    return fig, (ax1, ax2), (p1, p2)

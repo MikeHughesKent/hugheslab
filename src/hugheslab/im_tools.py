@@ -49,6 +49,24 @@ def crop_image(img, centre, dims):
         raise ValueError("Input image must be a 2D or 3D numpy array")
         
 
+def square_in_circle(radius):
+    """Returns the x-co-ordinates and width of the largest square that can fit 
+    inside a circle of given radius.
+
+    Arguments:
+        radius : float
+                 radius of circle
+    
+    Returns:
+        tuple of (x, width) where x is the x-co-ordinate of the left
+        edge of the square and width is the width of the square.
+    """
+    
+    width = int(2 * radius * math.sqrt(2))
+    x = int(radius * (1 - math.sqrt(2)))
+    return x, width
+
+
 def __crop_single_image(img, centre, dims):
     """Crops a single 2D image around the specified centre."""
     # Extract dimensions of the image and the target crop
@@ -227,31 +245,6 @@ def to16bit(img, minVal = None, maxVal = None):
     
     return img
 
-
-def radial_profile(img, centre):
-    """ Produce angular averaged radial profile through image img centred on
-    centre, a tuple of (x_centre, y_centre)
-    
-    Returns radial profile as 1D numpy array
-
-    Arguments:
-        img    : ndarray
-                 input image as 2D numpy array
-        centre : (int, int)
-                 centre point for radial profile, tuple of (x,y)  
-    Returns:
-        ndarray, 1D profile             
-    """
-    
-    y, x = np.indices((img.shape))
-    r = np.sqrt((x - centre[1])**2 + (y - centre[0])**2)
-    r = r.astype(int)
-    
-    tbin = np.bincount(r.ravel(), weights = img.ravel())
-    nr = np.bincount(r.ravel())
-    radialprofile = tbin  / nr
-    
-    return radialprofile 
  
 
 def average_channels(img):

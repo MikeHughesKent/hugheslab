@@ -24,6 +24,7 @@ it useful.
    scaling
    display
    figures
+   spot_analysis
     
 
 

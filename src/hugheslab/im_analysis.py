@@ -14,6 +14,9 @@ import numpy.ma as ma
 
 from PIL import Image
 
+from scipy.optimize import curve_fit
+from scipy.special import erf
+
 import cv2 
 
 
@@ -97,7 +100,7 @@ def gaussian(x, a, x0, sigma, b):
 
 
 
-def profile_gaussian_fit(profile, upsample = 1, crop = False, crop_factor = 10):
+def profile_gaussian_fit(profile, upsample = 1, crop = False, crop_factor = 10, match_height = False):
     """ Fits a Gaussian to a profile with optional upsampling and returns the 
     FWHM, paramters of the fit and upsampled plots of original data and fit.
     
@@ -132,8 +135,8 @@ def profile_gaussian_fit(profile, upsample = 1, crop = False, crop_factor = 10):
         peak_val = np.max(profile)
 
         # Find approx width of peak
-        start = np.where(profile > peak_val / 2)[0][0]
-        end = np.where(profile[peak_loc:] < peak_val / 2)[0][0] + peak_loc
+        start = np.where(profile > peak_val / 2)[0][0] - 1
+        end = np.where(profile[peak_loc:] < peak_val / 2)[0][0] + peak_loc + 1
 
         fwhm_estimate = end - start
         region_start = start - int((fwhm_estimate // 2 ) * crop_factor)
@@ -156,11 +159,14 @@ def profile_gaussian_fit(profile, upsample = 1, crop = False, crop_factor = 10):
 
     indices = np.arange(len(profile))
 
-    fit = gaussian_fit(profile)
+    fit = gaussian_fit(profile, match_height = match_height)
+    
+    predicted = gaussian(indices, *fit)
+
+       
     sigma = fit[2]
     fwhm = sigma * 2.355 / upsample
     
-    predicted = gaussian(indices, *fit)
 
     x_points = (indices - fit[1]) / upsample
 
@@ -168,7 +174,7 @@ def profile_gaussian_fit(profile, upsample = 1, crop = False, crop_factor = 10):
 
 
 
-def gaussian_fit(profile):
+def gaussian_fit(profile, match_height = False):
     """ Fits a Gaussian to a profile and returns the parameters of the fit.
     """
     from scipy.optimize import curve_fit
@@ -179,17 +185,74 @@ def gaussian_fit(profile):
     a = np.max(profile)
     x0 = np.argmax(profile)
     sigma = fwhm(profile) / 2.355
+    if np.isnan(sigma):
+        sigma = 1
     b = 0
 
-    popt, pcov = curve_fit(gaussian, indices, profile, p0=[a, x0, sigma, b])
+    if match_height:
+        popt, pcov = curve_fit(
+            lambda x, x0, sigma, b: gaussian(x, a, x0, sigma, b),
+            indices,
+            profile,
+            p0=[x0, sigma, b]
+            )
+        return [a, *popt]
 
-    return popt
+    else:
+        popt, pcov = curve_fit(
+            gaussian, 
+            indices, 
+            profile, 
+            p0=[a, x0, sigma, b])
+        return popt
+
+
+
+
+
+
     
 
 csum = lambda z: np.cumsum(z)[:-1]
 dsum = lambda z: np.cumsum(z[::-1])[-2::-1]
 argmax = lambda x, f: np.mean(x[:-1][f == np.max(f)])  # Use the mean for ties.
 clip = lambda z: np.maximum(1e-30, z)
+
+
+def esf(x, offset, amplitude, x0, sigma):
+        return offset + amplitude * 0.5 * (
+            1 + erf((x - x0)/(np.sqrt(2)*sigma))
+   )
+
+def edge_fit_erf(edge_profile):
+    """ Fits an error function to an edge profile and returns the parameters 
+    of the fit including the Gaussian sigma and the FWHM of the edge.
+    
+    Arguments:
+        edge_profile : numpy.ndarray
+                       1D array containing edge profile to fit
+   
+
+    """
+   
+
+    y = edge_profile
+    x = np.arange(len(y))
+    
+    # Initial guesses
+    p0 = [
+        np.min(y),                    # offset
+        np.max(y) - np.min(y),        # amplitude
+        x[np.argmin(np.abs(y - np.mean(y)))],  # edge location
+        1.0                           # sigma
+    ]
+
+    popt, pcov = curve_fit(esf, x, y, p0=p0)
+
+    offset, amplitude, x0, sigma = popt
+
+    return offset, amplitude, x0, sigma, 
+
 
 
 def GHT(n, x=None, nu=1, tau=1, kappa=1, omega=0.5):
@@ -250,4 +313,149 @@ def GHT(n, x=None, nu=1, tau=1, kappa=1, omega=0.5):
 
 
 
+
+def fwhm_from_sigma(sigma):
+    """ Calculates the Full Width at Half Maximum (FWHM) from a Gaussian sigma.
+    
+    Arguments:
+        sigma : float
+                The standard deviation of the Gaussian.
+    """
+    return sigma * 2.355
+
+
+def smooth_profile(profile, window_size=5):
+    """ Smooths a 1D profile using a simple moving average.
+    
+    Arguments:
+        profile : numpy.ndarray
+                  1D array representing the profile.
+        window_size : int
+                      The size of the moving average window (default is 5).
+    """
+    return np.convolve(profile, np.ones(window_size)/window_size, mode='same')
+
+
+
+
+from scipy.optimize import curve_fit
+
+
+def gaussian2d(coords, A, x0, y0, sigma_x, sigma_y, theta, B):
+    """
+    Rotated 2D Gaussian.
+    """
+    x, y = coords
+
+    ct = np.cos(theta)
+    st = np.sin(theta)
+
+    xp = (x - x0) * ct + (y - y0) * st
+    yp = -(x - x0) * st + (y - y0) * ct
+
+    g = A * np.exp(
+        -0.5 * (
+            (xp / sigma_x) ** 2 +
+            (yp / sigma_y) ** 2
+        )
+    ) + B
+
+    return g.ravel()
+
+
+def fit_gaussian2d(image):
+    """
+    Fit a rotated 2D Gaussian to an image.
+
+    Parameters
+    ----------
+    image : 2D ndarray
+
+    Returns
+    -------
+    params : dict
+        A, x0, y0, sigma_x, sigma_y, theta_deg, B
+    """
+
+    img = np.asarray(image, dtype=float)
+
+    ny, nx = img.shape
+    y, x = np.indices(img.shape)
+
+    # Initial guesses
+    B0 = np.percentile(img, 10)
+    A0 = img.max() - B0
+
+    total = np.sum(img - B0)
+    if total <= 0:
+        total = np.sum(img)
+
+    x0 = np.sum(x * (img - B0)) / total
+    y0 = np.sum(y * (img - B0)) / total
+
+    sigma_x0 = nx / 10
+    sigma_y0 = ny / 10
+    theta0 = 0.0
+
+    p0 = (
+        A0,
+        x0,
+        y0,
+        sigma_x0,
+        sigma_y0,
+        theta0,
+        B0,
+    )
+
+    bounds = (
+        [
+            0,          # A
+            0,          # x0
+            0,          # y0
+            0.1,        # sigma_x
+            0.1,        # sigma_y
+            -np.pi/2,   # theta
+            -np.inf     # B
+        ],
+        [
+            np.inf,
+            nx,
+            ny,
+            nx,
+            ny,
+            np.pi/2,
+            np.inf
+        ]
+    )
+
+    popt, pcov = curve_fit(
+        gaussian2d,
+        (x, y),
+        img.ravel(),
+        p0=p0,
+        bounds=bounds
+    )
+
+    A, x0, y0, sigma_x, sigma_y, theta, B = popt
+
+    # Ensure sigma_x corresponds to major axis
+    if sigma_y > sigma_x:
+        sigma_x, sigma_y = sigma_y, sigma_x
+        theta += np.pi / 2
+
+    theta_deg = np.degrees(theta)
+
+    # Wrap angle into [-90,90)
+    theta_deg = ((theta_deg + 90) % 180) - 90
+
+    return {
+        "A": A,
+        "x0": x0,
+        "y0": y0,
+        "sigma_major": sigma_x,
+        "sigma_minor": sigma_y,
+        "theta_deg": theta_deg,
+        "background": B,
+        "covariance": pcov,
+    }
 

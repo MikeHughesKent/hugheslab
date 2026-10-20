@@ -13,6 +13,7 @@ import numpy as np
 
 from PIL import Image
 
+from hugheslab.im_tools import to8bit, to16bit
 import cv2 
 
 def load_image(filename):
@@ -237,7 +238,7 @@ def save_tif_stack(stack, filename, bit_depth = 16, auto_contrast = None, fixed_
     
 
 
-def load_folder_images(folder, numeric_sort = True):
+def load_folder_images(folder, numeric_sort = True, return_files = False):
     """Loads all images in a folder and stores them as a 3D or 4D numpy array, 
     depending on whether they are monochrome or colour images. All images
     must be the same size.
@@ -245,6 +246,12 @@ def load_folder_images(folder, numeric_sort = True):
     Arguments:
         folder : str
                  path to folder
+    
+    Keyword Arguments:
+        numeric_sort : boolean
+                       if True (default), sorts files numerically based on numbers in the filename   
+        return_files : boolean
+                       if True, returns list of files in addition to stack (default = False)
     """
     # get list of files in folder
     files = os.listdir(folder)
@@ -289,7 +296,10 @@ def load_folder_images(folder, numeric_sort = True):
                
             stack[i] = np.array(im) 
 
-    return stack    
+    if return_files:
+        return stack, files
+    else:
+        return stack    
         
 
 def folder_to_tif_stack(folder, tif_file):
